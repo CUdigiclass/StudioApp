@@ -43,21 +43,22 @@ const Users = () => {
   const handlePageChange = (page) => {
     setCurrentPage(page)
     async function getUsers() {
-      setLoading(true)
       setUsers([])
+      setLoading(true)
       const res = await userRequest.get(`/user?page=${page}&limit=10`)
       setLoading(false)
       return res
     }
     getUsers().then((res) => {
       setUsers(res.data.users)
-      setTotalPages(res.data.count)
+      // setTotalPages(res.data.count)
     })
   }
 
   useEffect(() => {
     async function getUsers() {
       setLoading(true)
+      setUsers([])
       const res = await userRequest.get("/user?page=1&limit=10")
       setLoading(false)
       return res
@@ -263,7 +264,8 @@ const Users = () => {
                     <option value='admin'>admin</option>
                     <option value='teacher'>teacher</option>
                     <option value='manager'>manager</option>
-                    <option value='provc'>provc</option>
+                    <option value='recorder'>recorder</option>
+                    <option value='pcs'>pcs & vcs</option>
                   </select>
                   { }
                 </div>

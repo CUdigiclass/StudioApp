@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import styled from 'styled-components'
 import Navbar from '../components/Navbar'
-import { Button, Modal, Spin, Result } from 'antd'
-import { DeleteOutlined, LoadingOutlined } from '@ant-design/icons'
+import { Button, Modal, Spin, Result, Tooltip, Select, Space } from 'antd'
+import { DeleteOutlined, LoadingOutlined, VideoCameraOutlined } from '@ant-design/icons'
 import { publicRequest } from '../requestMethods'
 import ResponsivePagination from 'react-responsive-pagination';
 import 'react-responsive-pagination/themes/classic.css';
@@ -84,6 +84,49 @@ const H4 = styled.h4`
 const Pagination = styled.div`
   
 `
+const RecorderChipWrapper = styled.div`
+    max-width: 400px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+`
+const RecorderChip = styled.div`
+  display: inline-block;
+  padding: 5px;
+  font-size: 10px;
+  border-radius: 5px;
+  color: white;
+  background-color: black;
+  width: 70px;
+`
+const RecorderChipWrapperModal = styled.div`
+    max-width: 400px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+`
+const RecorderChipModal = styled.div`
+  /* display: inline-block; */
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 10px;
+  border-radius: 5px;
+  color: white;
+  background-color: black;
+  max-width: 110px;
+`
+const CroseIconTag = styled.span`
+ padding-left: 10px;
+  color: white;
+  font-weight: bold;
+  float: right;
+  font-size: 20px;
+  cursor: pointer;
+  &:hover {
+    color: #888;
+  }
+`
 
 const Programs = () => {
     // const [semester,setSemester] = useState("")
@@ -100,9 +143,9 @@ const Programs = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1)
 
-    const handlePageChange = (page)=>{
+    const handlePageChange = (page) => {
         setCurrentPage(page)
-        getProgramList(page,10)
+        getProgramList(page, 10)
     }
 
     const handleChange = (e) => {
@@ -115,11 +158,11 @@ const Programs = () => {
     const showModal = () => {
         setOpen(true);
     };
-    const handleOk = async() => {
+    const handleOk = async () => {
         setLoading(true);
         console.log(values)
         await publicRequest.post("/program", values)
-        getProgramList(1,10)
+        getProgramList(1, 10)
         setCurrentPage(1)
         setLoading(false)
         setOpen(false)
@@ -127,6 +170,37 @@ const Programs = () => {
     const handleCancel = () => {
         setOpen(false);
     };
+    const [openRecorderManager, setopenRecorderManager] = useState(false);
+    const [selectedProgramForRecorder, setSelectedProgramForRecorder] = useState({})
+    const [selecterProgramForRecorderAvailableRecorders, setSelecterProgramForRecorderAvailableRecorders] = useState([])
+    const [selectedRecordersToAddIds,setSelectedRecordersToAddIds] = useState([])
+    const showModalRecorderManager = async (program) => {
+        setSelectedProgramForRecorder(program)
+        const recorders = await publicRequest.post("/user/role/list/recorder", {recordersIDs: program.recorders.map(recorder=> recorder._id)})
+        // console.log(recorders.data.users)
+        setSelecterProgramForRecorderAvailableRecorders(recorders.data.users)
+        setopenRecorderManager(true);
+    };
+    const handleOkRecorderManager = async () => {
+        setLoading(true);
+        const res = await publicRequest.post("/program/recorder", {recorderIds: selectedRecordersToAddIds, programId: selectedProgramForRecorder?._id})
+        setSelectedProgramForRecorder({})
+        setSelecterProgramForRecorderAvailableRecorders([])
+        setSelectedRecordersToAddIds([])
+        handleSelectChangeRecorderAdd()
+        setopenRecorderManager(false)
+        getProgramList(1, 10)
+        setCurrentPage(1)
+        setLoading(false)
+    };
+    const handleCancelRecorderManager = () => {
+        setSelectedProgramForRecorder({})
+        setSelecterProgramForRecorderAvailableRecorders([])
+        setSelectedRecordersToAddIds([])
+        handleSelectChangeRecorderAdd()
+        setopenRecorderManager(false);
+    };
+
 
     const antIcon = (
         <LoadingOutlined
@@ -138,12 +212,12 @@ const Programs = () => {
             spin
         />
     );
-    const handleDelete =async (id) => {
+    const handleDelete = async (id) => {
         await publicRequest.delete(`/program/${id}`)
-        getProgramList(1,10)
+        getProgramList(1, 10)
         setCurrentPage(1)
     }
-    const getProgramList = async (page,limit) => {
+    const getProgramList = async (page, limit) => {
         setLoadingContent(true)
         setPrograms([])
         try {
@@ -156,9 +230,20 @@ const Programs = () => {
         }
     }
     useEffect(() => {
-        getProgramList(1,10)
+        getProgramList(1, 10)
     }, [])
-    console.log(programs)
+    const handleSelectChangeRecorderAdd = (selectedRecordersToAddIdsParam=[])=>{
+        setSelectedRecordersToAddIds(selectedRecordersToAddIdsParam)
+    }
+    const handleRemoveRecorderIcon = async(recorder)=>{
+        console.log(recorder)
+        console.log(selectedProgramForRecorder)
+        const res = await publicRequest.put(`/program/recorder/${selectedProgramForRecorder?._id}/${recorder?._id}`)
+        alert("recorder removed")
+        handleCancelRecorderManager()
+        getProgramList(1, 10)
+        setCurrentPage(1)
+    }
     return (
         <OuterContainer>
             <Sidebar />
@@ -179,17 +264,24 @@ const Programs = () => {
                                     <th>Program Name</th>
                                     <th>Course Name</th>
                                     <th>Actions</th>
+                                    <th>Recorders</th>
                                 </tr>
                                 {
-                                    programs?.map((program,index) => {
+                                    programs?.map((program, index) => {
                                         return (
                                             <tr key={program._id}>
-                                                <td>{index+1 + (10 * (currentPage-1))}</td>
+                                                <td>{index + 1 + (10 * (currentPage - 1))}</td>
                                                 <td>{program.semester}</td>
                                                 <td>{program.programName}</td>
                                                 <td>{program.courseName}</td>
                                                 <td>
-                                                    {<Button onClick={() => handleDelete(program._id)}><DeleteOutlined style={{ color: "red", fontSize: "18px", margin: "2px" }} /></Button>}
+                                                    {<Tooltip title="Delete Program"><Button onClick={() => handleDelete(program._id)} style={{ marginRight: '4px' }}><DeleteOutlined style={{ color: "red", fontSize: "18px", margin: "2px" }} /></Button></Tooltip>}
+                                                    {<Tooltip title="Manage recorders"><Button onClick={() => showModalRecorderManager(program)}><VideoCameraOutlined style={{ color: "black", fontSize: "18px", margin: "2px" }} /></Button></Tooltip>}
+                                                </td>
+                                                <td>
+                                                    <RecorderChipWrapper>
+                                                        {program?.recorders?.map(recorder => <RecorderChip className='text-truncate'>{`${recorder?.name} ${recorder?.lastname}`}</RecorderChip>)}
+                                                    </RecorderChipWrapper>
                                                 </td>
                                             </tr>
                                         )
@@ -199,13 +291,13 @@ const Programs = () => {
 
                         </table>
                         </div>
-                        <Pagination>
-              <ResponsivePagination
-                current={currentPage}
-                total={totalPages}
-                onPageChange={page => handlePageChange(page)}
-              />
-              </Pagination>
+                            <Pagination>
+                                <ResponsivePagination
+                                    current={currentPage}
+                                    total={totalPages}
+                                    onPageChange={page => handlePageChange(page)}
+                                />
+                            </Pagination>
                         </TableContainer> : !loadingContent &&
                         <Result
                             status="404"
@@ -251,6 +343,43 @@ const Programs = () => {
                             <Div>
                                 <Label>Course Name:</Label>
                                 <Input type='text' placeholder='eg: Design Thinking' autoCorrect='false' name='courseName' id='courseName' onChange={(e) => handleChange(e)} />
+                            </Div>
+                        </OuterDiv>
+                    </Modal>
+                    <Modal
+                        open={openRecorderManager}
+                        onOk={handleOkRecorderManager}
+                        onCancel={handleCancelRecorderManager}
+                        footer={[
+                            <Button key="back" onClick={handleCancelRecorderManager}>
+                                Return
+                            </Button>,
+                            <Button key="submit" type="primary" loading={loading} onClick={handleOkRecorderManager} danger disabled={selectedRecordersToAddIds?.length > 0 ?false:true}>
+                                Add
+                            </Button>
+                        ]}
+                    >
+                        <OuterDiv>
+                            <H4>Manage recorders</H4>
+                            <Div>
+                                <Select
+                                    style={{
+                                        width: 250,
+                                    }}
+                                    mode='multiple'
+                                    allowClear
+                                    placeholder="Add recorders to this program"
+                                    onChange={handleSelectChangeRecorderAdd}
+                                    value={selectedRecordersToAddIds}
+                                    options={selecterProgramForRecorderAvailableRecorders?.map(recorder=>{
+                                        return {value: recorder._id, label: `${recorder?.name} (${recorder?.email})`}
+                                    })}
+                                />
+                            </Div>
+                            <Div>
+                            <RecorderChipWrapperModal>
+                                {selectedProgramForRecorder?.recorders?.map(recorder => <RecorderChipModal className='text-truncate'>{`${recorder?.name} ${recorder?.lastname}`}<CroseIconTag onClick={()=>handleRemoveRecorderIcon(recorder)}>&times;</CroseIconTag></RecorderChipModal>)}
+                            </RecorderChipWrapperModal>
                             </Div>
                         </OuterDiv>
                     </Modal>

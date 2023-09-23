@@ -21,6 +21,7 @@ const SlotStatusReducer = (state, action) => {
                 bookedSlots: [],
                 loading: true,
                 error: null,
+                bookedSlotsData: []
             };
         case "GET_STATUS_SUCCESS":
             return {
@@ -34,6 +35,7 @@ const SlotStatusReducer = (state, action) => {
                 bookedSlots: [],
                 loading: false,
                 error: action.payload,
+                bookedSlotsData:[]
             };
         default:
             return state;

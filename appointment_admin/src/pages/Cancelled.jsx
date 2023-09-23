@@ -72,6 +72,7 @@ const InputJi = styled.input`
     padding: 10px;
     font-size: 14px;
 `
+
 const Cancelled = () => {
     const [studioNo, setStudioNo] = useState('all')
     const [loading, setLoading] = useState(false)
@@ -228,7 +229,7 @@ const Cancelled = () => {
                                             bookings.length > 0 &&
                                             bookings?.map((booking,index) => {
                                                 return (                                              
-                                                        <tr key={booking?.bookings?._id}>
+                                                        <tr key={booking?.bookings?._id} className={new Date(booking?.bookings?.date).getTime() == new Date(todayDateStringToSendToBackend()).getTime()? "table-danger": ""}>
                                                             <td>{index+1 + (10*(currentPage-1))}</td>
                                                             <td>{getTimingStringFromTimingNoOfSlot(booking?.timingNo)}</td>
                                                             <td>{booking?.studioNo}</td>

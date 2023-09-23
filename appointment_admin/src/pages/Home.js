@@ -66,10 +66,10 @@ const Home = () => {
         setIsModalOpen(false);
     };
     useEffect(() => {
-        let yourDate = new Date()
-        const offset = yourDate.getTimezoneOffset()
-        yourDate = new Date(yourDate.getTime() - (offset * 60 * 1000))
-        const stringDate = yourDate.toISOString().split('T')[0]
+            let yourDate = new Date()
+            const offset = yourDate.getTimezoneOffset()
+            yourDate = new Date(yourDate.getTime() - (offset * 60 * 1000))
+            const stringDate = yourDate.toISOString().split('T')[0]
         slotStatuses(dispatch, stringDate)
     }, [dispatch])
 

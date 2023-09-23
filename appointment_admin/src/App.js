@@ -15,6 +15,7 @@ import StudioConfigure from "./pages/StudioConfigure";
 import Manage from "./pages/Manage";
 import Privacy from "./pages/Privacy";
 import Cancelled from "./pages/Cancelled";
+import Waiting from "./pages/Waiting";
 
 function App() {
   const { user } = useContext(AuthContext)
@@ -24,36 +25,18 @@ function App() {
         <Route exact path="/" element={user?.isAdmin ? <Home /> : <Navigate to="/login" />} />
         <Route path="/login" element={user?.isAdmin ?<Home/>:<Login />} />
         <Route path="/register" element={user?.isAdmin ?<Home/>:<Register />} />
-        <Route path="/users" element={user?.isAdmin ?<Users />: <Login/>} />
-        <Route path="/requests" element={user?.isAdmin ?<Requests />: <Login/>} />
-        <Route path="/programs" element={user?.isAdmin ?<Programs />: <Login/>} />
-        <Route path="/configure" element={user?.isAdmin ?<StudioConfigure />: <Login/>} />
-        <Route path="/cancelled" element={user?.isAdmin ?<Cancelled />: <Home/>} />
-        <Route path="/manage" element={user?.role==='manager' ?<Manage />: <Home/>} />
+        <Route path="/users" element={user?.isAdmin? (user?.role == "recorder" || user?.role == "manager" || user?.role == "pcs"? <Navigate to="/"/>: <Users/>): <Navigate to="/login"/>}/>
+        <Route path="/requests" element={user?.isAdmin ?(user?.role == 'pcs'?<Navigate to='/'/>:<Requests />): <Navigate to="/login"/>} />
+        <Route path="/programs" element={user?.isAdmin? (user?.role == "recorder" || user?.role == "manager" || user?.role == "pcs"? <Navigate to="/"/>: <Programs/>): <Navigate to="/login"/>} />
+        <Route path="/configure" element={user?.isAdmin? (user?.role == "recorder" || user?.role == "manager" || user?.role == "pcs"? <Navigate to="/"/>: <StudioConfigure/>): <Navigate to="/login"/>} />
+        <Route path="/cancelled" element={user?.isAdmin ?(user?.role == "recorder" || user?.role == "manager" || user?.role == "pcs"? <Navigate to="/"/>: <Cancelled/>): <Navigate to="/login"/>} />
+        <Route path="/waiting" element={user?.isAdmin? (user?.role == "recorder" || user?.role == "manager" || user?.role == "pcs"? <Navigate to="/"/>: <Waiting/>): <Navigate to="/login"/>}/>
+        <Route path="/manage" element={user?.isAdmin ? (user?.role == "pcs"? <Navigate to="/"/>: <Manage/>): <Navigate to="/login"/>} />
         <Route path="/privacy" element={<Privacy/>} />
       </Routes>
     </BrowserRouter>
   );
-  // return (
-  //   <Router>
-  //     <Routes>
-  //       <Route path="/login" element={<Login />} />
-  //       <Route path="/register" element={<Register />} />
-  //       <Route path="/" element={<PageLayout />} >
-  //         <Route element={user?.isAdmin ? <Home /> : <Navigate to="/login" />} />
-  //         <Route path="/users" element={<Users />} />
-  //         <Route path="/requests" element={<Requests />} />
-  //       </Route>
-  //     </Routes>
-  //   </Router>
-  // )
 }
 
-// export const router = createBrowserRouter([
-//   {
-//     path: "/",
-//     element: <div>Hello world!</div>,
-//   },
-// ]);
 
 export default App;

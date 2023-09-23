@@ -106,6 +106,7 @@ const Slot = ({ setDatePickerOpen, slotType }) => {
     const [programs, setPrograms] = useState([])
     const [semester, setSemester] = useState(SEMESTERS[0])
     const [programName, setProgramName] = useState(PROGRAMNAMES[0])
+    const [programObjectSelected,setProgramObjectSelected]  = useState({})
     const [state, dispatchA] = useReducer(bookingReducer, INITIAL_STATE_SLOT_REDUCER)
     const { user } = useContext(AuthContext)
     const [messageApi, contextHolder] = message.useMessage();
@@ -144,7 +145,8 @@ const Slot = ({ setDatePickerOpen, slotType }) => {
                     degree: programName,
                     date: dateString,
                     userEmail: user.email
-                }
+                },
+                programObject: programObjectSelected
             }, {
                 headers: header
             })
@@ -263,7 +265,8 @@ const Slot = ({ setDatePickerOpen, slotType }) => {
                             ))
                         }
                     </Select>
-                    <Select name="programs" value={program} defaultValue={programs[0]?.courseName} onChange={(e) => setProgram(programs[e.target.options.selectedIndex]?.courseName)}>
+                    <Select name="programs" value={program} defaultValue={programs[0]?.courseName} onChange={(e) => { setProgram(programs[e.target.options.selectedIndex]?.courseName)
+                                                                                                                      setProgramObjectSelected (programs[e.target.options.selectedIndex])}}>
                         {
                             programs && programs.map((item) => (
                                 <Option value={item?.courseName} key={item._id} >{item?.courseName}</Option>

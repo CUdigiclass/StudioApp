@@ -12,9 +12,22 @@ const SES_CONFIG = {
 //creating new ses service object
 const sesClient = new SESClient(SES_CONFIG)
 
+// to type return accordingly
+const toAccordingToType = (value)=>{
+    let res = [];
+    if(typeof(value) === 'object'){
+        for (let val in value){
+          res.push(value[val])
+        }
+    }else{
+        res.push(value)
+    }
+    return res
+}
+
 const sendTemplatedEmailSES = async (to,templateName,templateData) => {
     let params = {
-        Destination: { ToAddresses: [to],CcAddresses: ['mohit.e13077@cumail.in'] },
+        Destination: { ToAddresses: toAccordingToType(to),CcAddresses: ['gurpreet.e12449@cumail.in'] },
         TemplateData: JSON.stringify(templateData),
         Source: process.env.AWS_SES_SENDER_STUDIO,
         Template: templateName,

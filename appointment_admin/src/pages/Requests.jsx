@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import styled from "styled-components";
 import Navbar from "../components/Navbar";
@@ -11,6 +11,7 @@ import {
   getTimingStringFromTimingNoOfSlot,
   todayDateStringToSendToBackend,
 } from "../utils/dateUtil";
+import { AuthContext } from "../context/AuthContext";
 
 const Container = styled.div`
   display: flex;
@@ -38,6 +39,7 @@ const Requests = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const {user}  = useContext(AuthContext)
   const handlePageChange = (page) => {
     console.log(page);
     setCurrentPage(page);
@@ -77,13 +79,14 @@ const Requests = () => {
   }, []);
   console.log(bookings);
   const handleDelete = async (booking) => {
-    const { studioNo, timingNo } = booking;
+    const { studioNo, timingNo, slotNo } = booking;
     const date = booking.slotBookingsData.date;
     try {
       await userRequest.post("/booking/delete", {
         studioNo,
         timingNo,
         date,
+        slotNo
       });
     } catch (error) {
       return console.log(error);
@@ -228,7 +231,7 @@ const Requests = () => {
                               <td>{booking.user_doc.email}</td>
                               <td>
                                 {
-                                  <Button onClick={() => handleDelete(booking)}>
+                                  !(user?.role == "recorder" || user?.role == "manager") && <Button onClick={() => handleDelete(booking)}>
                                     <DeleteOutlined
                                       style={{
                                         color: "red",

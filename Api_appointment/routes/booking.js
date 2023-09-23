@@ -134,7 +134,7 @@ function localDateStringToDDMMYYYY(localDateString) {
   return day + "/" + month + "/" + year;
 }
 
-const createEvent = async (refreshToken, dateString, startTimeString, endTimeString, req, description, slotNo, studioNo, type) => {
+const createEvent = async (refreshToken, dateString, startTimeString, endTimeString, email, description, slotNo, studioNo, type) => {
   try {
     oAuth2Client.setCredentials({ refresh_token: refreshToken })
     const calendar = google.calendar('v3')
@@ -147,10 +147,18 @@ const createEvent = async (refreshToken, dateString, startTimeString, endTimeStr
         location: 'Chandigarh University',
         colorId: '7',
         start: {
-          dateTime: new Date(`${dateString} ${startTimeString}`)
+          dateTime: new Date(`${dateString} ${startTimeString}`),
+          timeZone: 'Asia/Kolkata'
         },
         end: {
-          dateTime: new Date(`${dateString} ${endTimeString}`)
+          dateTime: new Date(`${dateString} ${endTimeString}`),
+          timeZone: 'Asia/Kolkata'
+        },
+        reminders: {
+          useDefault: false,
+          overrides: [
+            { method: 'popup', minutes: 10 },
+          ]
         }
       }
     })
@@ -158,10 +166,10 @@ const createEvent = async (refreshToken, dateString, startTimeString, endTimeStr
       slotNo: slotNo,
       studioNo: studioNo,
       type: type,
-      timingNo: req.body.timingNo,
+      timingNo: slotNo % 10,
       date: new Date(dateString),
       eventId: response.data.id,
-      userEmail: req.body.email,
+      userEmail: email,
       refreshToken: refreshToken
     })
     await event.save()
@@ -238,6 +246,12 @@ router.post("/", async (req, res, next) => {
       'slotBookingsData.date': { $ne: new Date(req.body.slotBookingData.date) },
       'active': true
     })
+    let slotBookingData = req.body.slotBookingData
+    let recorder = ''
+    if (req.body?.programObject && req.body.programObject?.recorders?.length > 0) {
+      recorder = getRandomItem(req.body.programObject?.recorders)?.email
+      slotBookingData.recorder = recorder
+    }
     if (!availableSlots.length) {
       // const randomSlotNo = getRandomSlotNumberFromType(req.body.type, req.body.timingNo)
       const availableSlotsWaiting = await Slot.find({
@@ -273,7 +287,7 @@ router.post("/", async (req, res, next) => {
         }
       ])
       const newWaitingNumber = queueDataNumber.length + 1
-      const queueBookingData = { ...req.body.slotBookingData, waitingNo: newWaitingNumber }
+      const queueBookingData = { ...slotBookingData, waitingNo: newWaitingNumber }
 
       //create reserve booking
       await Slot.findOneAndUpdate({
@@ -293,7 +307,7 @@ router.post("/", async (req, res, next) => {
         waitingNo: newWaitingNumber
       }
       // await sendEmail(req, res, req.body.email, 'Studio Booking in Waiting Queue Successfull', waitingDoneTemplateId, dynamicTemplateDataForWaiting)
-      await sendTemplatedEmailSES(req.body.email, 'studio-booking-waiting-idol', dynamicTemplateData)
+      await sendTemplatedEmailSES(req.body.email, 'studio-booking-waiting-idol', dynamicTemplateDataForWaiting)
       return res.status(201).json({ msg: `reserve booking has been made in studio ${Math.trunc(randomSlotNoWaiting / 10)} and slot ${randomSlotNoWaiting % 10}`, waitingNo: newWaitingNumber })
     }
     const slotNos = availableSlots.map(slot => slot.slotNo)
@@ -306,11 +320,10 @@ router.post("/", async (req, res, next) => {
       },
       {
         $push: {
-          "slotBookingsData": req.body.slotBookingData
+          "slotBookingsData": slotBookingData
         },
       }, { new: true }
     );
-    const subject = `Studio Booking confirmed`
 
 
     const dynamicTemplateData = {
@@ -321,12 +334,23 @@ router.post("/", async (req, res, next) => {
       timing: getTimingNoString(req.body.timingNo),
       slotNo: Math.trunc(randomSlotNo / 10),
     }
+    let receiversOfEmail = [req.body.email]
+    if (recorder != '') {
+      receiversOfEmail.push(recorder)
+    }
     // await sendEmail(req, res, req.body.email, subject, bookingDoneTemplateId, dynamicTemplateData)
-    await sendTemplatedEmailSES(req.body.email, 'studio-booking-confirmed-idol', dynamicTemplateData)
+    await sendTemplatedEmailSES(receiversOfEmail, 'studio-booking-confirmed-idol', dynamicTemplateData)
     const user = await User.findOne({ email: req.body.email })
     const refreshToken = user.refreshTokenGoogle
+
     const description = `You have a booking at Studio Number ${Math.trunc(randomSlotNo / 10)} on date: ${localDateStringToDDMMYYYY(req.body.slotBookingData.date)}, time: ${getTimingNoString(req.body.timingNo)} for the program: ${req.body.slotBookingData.program} and degree: ${req.body.slotBookingData.degree}. Please report 10 minutes before the slot time`
-    await createEvent(refreshToken, req.body.slotBookingData.date, getStartTimeFromTimingNo(req.body.timingNo), getEndTimeFromTimingNo(req.body.timingNo), req, description, randomSlotNo, Math.trunc(randomSlotNo / 10), req.body.type)
+    await createEvent(refreshToken, req.body.slotBookingData.date, getStartTimeFromTimingNo(req.body.timingNo), getEndTimeFromTimingNo(req.body.timingNo), req.body.email, description, randomSlotNo, Math.trunc(randomSlotNo / 10), req.body.type)
+    if (recorder != '') {
+      const recorderUser = await User.findOne({ email: recorder })
+      const refreshTokenRecorder = recorderUser.refreshTokenGoogle
+      const descriptionRecorder = `You have a booking at Studio Number ${Math.trunc(randomSlotNo / 10)} on date: ${localDateStringToDDMMYYYY(req.body.slotBookingData.date)}, time: ${getTimingNoString(req.body.timingNo)} for the program: ${req.body.slotBookingData.program} and degree: ${req.body.slotBookingData.degree} from ${req.body.email}. Please report 10 minutes before the slot time`
+      await createEvent(refreshTokenRecorder, req.body.slotBookingData.date, getStartTimeFromTimingNo(req.body.timingNo), getEndTimeFromTimingNo(req.body.timingNo), recorder, descriptionRecorder, randomSlotNo, Math.trunc(randomSlotNo / 10), req.body.type)
+    }
     res.status(200).json(`booking has been made in studio ${Math.trunc(randomSlotNo / 10)} and slot ${randomSlotNo % 10}`)
   } catch (err) {
     res.status(401).json("there is error in backend code or postman query");
@@ -352,81 +376,6 @@ router.post("/bulk", async (req, res) => {
   } catch (error) {
     console.log(error)
     res.status(500).json({ msg: error.message })
-  }
-})
-
-//create a reserve booking
-router.post("/reserve", async (req, res) => {
-  try {
-    const availableSlots = await Slot.find({
-      "type": req.body.type,
-      "timingNo": req.body.timingNo,
-      'slotBookingsData.date': { $ne: new Date(req.body.slotBookingData.date) }
-    })
-
-    if (!availableSlots.length) {
-      const randomSlotNo = getRandomSlotNumberFromType(req.body.type, req.body.timingNo)
-
-      //getting waiting number
-      const queueDataNumber = await Slot.aggregate([
-        {
-          '$match': {
-            'slotNo': randomSlotNo
-          }
-        }, {
-          '$unwind': {
-            'path': '$queueData.slotBookingsData'
-          }
-        }, {
-          '$match': {
-            'queueData.slotBookingsData.date': new Date(req.body.slotBookingData.date)
-          }
-        }, {
-          '$sort': {
-            'queueData.slotBookingsData.bookedAt': 1
-          }
-        }, {
-          $project: {
-            'queueData': 1,
-            '_id': 0
-          }
-        }
-      ])
-      const newWaitingNumber = queueDataNumber.length + 1
-      const queueBookingData = { ...req.body.slotBookingData, waitingNo: newWaitingNumber }
-
-      //create reserve booking
-      await Slot.findOneAndUpdate({
-        slotNo: randomSlotNo
-      }, {
-        $push: {
-          "queueData.slotBookingsData": queueBookingData
-        }
-      })
-
-      return res.status(201).json({ msg: `reserve booking has been made in studio ${Math.trunc(randomSlotNo / 10)} and slot ${randomSlotNo % 10}`, waitingNo: newWaitingNumber })
-    }
-
-    const slotNos = availableSlots.map(slot => slot.slotNo)
-    const randomSlotNo = getRandomItem(slotNos)
-
-    const updatedSlot = await Slot.findOneAndUpdate(
-      {
-        "slotNo": randomSlotNo,
-        'slotBookingsData.date': { $ne: new Date(req.body.slotBookingData.date) }
-      },
-      {
-        $push: {
-          "slotBookingsData": req.body.slotBookingData
-        },
-      }, { new: true }
-    );
-
-    res.status(200).json(`booking has been made in studio ${Math.trunc(randomSlotNo / 10)} and slot ${randomSlotNo % 10}`)
-
-  } catch (error) {
-    console.log(error)
-    res.status(500).json(error)
   }
 })
 
@@ -514,18 +463,18 @@ router.get("/cancelled/history/admin", async (req, res) => {
   const skip = (page - 1) * limit       // if limit is 10 and page is 2 then, skip will be 10, so it will show the objects after skipping 10 objects from the results
 
   const sort = req.query.sort
-  let sortQuery = { "deletedData.slotBookingsData.date": 1 }
+  let sortQuery = { "bookings.deletedAt": -1 }   //latest deleted first, we are using bookings bcz deleted bookings are in bookings tab
   if (sort) {
     switch (sort) {
       case "deletedAt":
         if (req.query.order) {
           if (req.query.order == 'Asc') {
-            sortQuery = { "deletedData.slotBookingsData.deletedAt": 1 }
+            sortQuery = { "bookings.deletedAt": 1 }
           } else if (req.query.order == 'Desc') {
-            sortQuery = { "deletedData.slotBookingsData.deletedAt": -1 }
+            sortQuery = { "bookings.deletedAt": -1 }
           }
         } else {
-          sortQuery = { "deletedData.slotBookingsData.bookedAt": 1 }
+          sortQuery = { "deletedData.slotBookingsData.bookedAt": -1 }
         }
         break;
       case "studioNo":
@@ -581,7 +530,7 @@ router.get("/cancelled/history/admin", async (req, res) => {
         },
         {
           $project: {
-            bookings: '$deletedData.slotBookingsData',slotNo: 1, studioNo: 1, type: 1, timingNo: 1, _id: 0, user_doc: 1
+            bookings: '$deletedData.slotBookingsData', slotNo: 1, studioNo: 1, type: 1, timingNo: 1, _id: 0, user_doc: 1
           }
         }, {
           '$sort': sortQuery
@@ -624,7 +573,7 @@ router.get("/cancelled/history/admin", async (req, res) => {
         let rowItem = {
           s_no: counter,
           studioNo: item.studioNo,
-          slotNo: item.slotNo%10,
+          slotNo: item.slotNo % 10,
           timing: getTimingNoString(item?.timingNo),
           date: localDateStringToDDMMYYYY(item.bookings.date),
           program: item.bookings?.program,
@@ -656,7 +605,7 @@ router.get("/cancelled/history/admin", async (req, res) => {
         '$unwind': {
           'path': '$deletedData.slotBookingsData'
         }
-      },{
+      }, {
         '$match': {
           ...studioQuery,
           ...searchQuery
@@ -688,6 +637,9 @@ router.get("/cancelled/history/admin", async (req, res) => {
         }
       },
       {
+        $sort: sortQuery
+      },
+      {
         $facet: {
           results: [
             {
@@ -711,6 +663,219 @@ router.get("/cancelled/history/admin", async (req, res) => {
       }
     ])
     res.status(200).json({ totalPages: Math.ceil(cancelledBookings[0].count[0].count / limit), count: cancelledBookings[0].results.length, bookings: cancelledBookings[0].results })
+  } catch (error) {
+    res.status(500).json({ msg: error.message })
+  }
+})
+
+//get waiting bookings data for admin
+router.get("/waiting/history/admin", async (req, res) => {
+  // pagination and limit
+  const page = Number(req.query.page) || 1
+  const limit = Number(req.query.limit) || 10  //by default 10 is the limit of objects to fetch
+  const skip = (page - 1) * limit       // if limit is 10 and page is 2 then, skip will be 10, so it will show the objects after skipping 10 objects from the results
+
+  const sort = req.query.sort
+  let sortQuery = { "bookings.bookedAt": -1 }   //latest added in waiting, we are using bookings bcz queue bookings are in bookings tab
+  if (sort) {
+    switch (sort) {
+      case "bookedAt":
+        if (req.query.order) {
+          if (req.query.order == 'Asc') {
+            sortQuery = { "bookings.bookedAt": 1 }
+          } else if (req.query.order == 'Desc') {
+            sortQuery = { "bookings.bookedAt": -1 }
+          }
+        } else {
+          sortQuery = { "bookings.bookedAt": -1 }
+        }
+        break;
+      case "studioNo":
+        if (req.query.order) {
+          if (req.query.order == 'Asc') {
+            sortQuery = { "studioNo": 1 }
+          } else if (req.query.order == 'Desc') {
+            sortQuery = { "studioNo": -1 }
+          }
+        } else {
+          sortQuery = { "studioNo": 1 }
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+
+
+
+  const studio = req.query.studio
+  let studioQuery = {}
+  if (studio) {
+    switch (studio) {
+      case 'all':
+        studioQuery = {}
+        break;
+      default:
+        studioQuery = { 'studioNo': Number(studio) }
+        break;
+    }
+  }
+
+  const { program, email } = req.query
+  let searchQuery = {}
+  if (program) {
+    searchQuery = { 'queueData.slotBookingsData.program': { $regex: program, $options: 'i' } }
+  }
+  if (email) {
+    searchQuery = { 'queueData.slotBookingsData.userEmail': { $regex: email, $options: 'i' } }
+  }
+
+  try {
+
+    if (req.query.typeOfRequest === 'downloadCsv') {
+
+      let bookingsJi = await Slot.aggregate([
+        {
+          '$unwind': {
+            'path': '$queueData.slotBookingsData'
+          }
+        },
+        {
+          $project: {
+            bookings: '$queueData.slotBookingsData', slotNo: 1, studioNo: 1, type: 1, timingNo: 1, _id: 0, user_doc: 1
+          }
+        }, {
+          '$sort': sortQuery
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'bookings.userEmail',
+            foreignField: 'email',
+            as: 'user_doc',
+            pipeline: [{ "$project": { "name": 1, "lastname": 1, "email": 1, "role": 1 } }]
+          }
+        },
+        {
+          $unwind: {
+            path: '$user_doc'
+          }
+        }
+      ])
+      const workbook = new excelJs.Workbook()
+      const worksheet = workbook.addWorksheet("Studio Slot Cancelled Data")
+
+      worksheet.columns = [
+        { header: "S.no", key: 's_no', width: 10 },
+        { header: "Studio No", key: 'studioNo', width: 15 },
+        { header: "Slot No", key: 'slotNo', width: 15 },
+        { header: "Timing", key: "timing", width: 25 },
+        { header: 'Date', key: "date", width: 30 },
+        { header: 'Course', key: "program", width: 50 },
+        { header: 'Semester', key: "semester", width: 10 },
+        { header: 'Program', key: "degree", width: 30 },
+        { header: 'Full Name', key: "fullName", width: 40 },
+        { header: 'Role', key: 'role', width: 25 },
+        { header: 'Email', key: 'email', width: 50 },
+        { header: 'Waiting Number', key: 'waitingNo', width: 15 }
+      ]
+
+      let counter = 1;
+      bookingsJi.forEach((item) => {
+        let rowItem = {
+          s_no: counter,
+          studioNo: item.studioNo,
+          slotNo: item.slotNo % 10,
+          timing: getTimingNoString(item?.timingNo),
+          date: localDateStringToDDMMYYYY(item.bookings.date),
+          program: item.bookings?.program,
+          semester: item.bookings?.semester,
+          degree: item.bookings?.degree,
+          fullName: `${item?.user_doc?.name} ${item?.user_doc?.lastname}`,
+          role: item?.user_doc?.role,
+          email: item?.user_doc?.email,
+          waitingNo: item.bookings?.waitingNo
+        }
+        worksheet.addRow(rowItem)
+        counter++
+      })
+
+      worksheet.getRow(1).eachCell((cell) => {
+        cell.font = { bold: true }
+      })
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader("Content-Disposition", "attachment; filename=" + "StudioSlotReport.xlsx");
+      return workbook.xlsx.write(res)
+        .then(function (data) {
+          res.end();
+        });
+    }
+
+    const waitingBookings = await Slot.aggregate([
+      {
+        '$unwind': {
+          'path': '$queueData.slotBookingsData'
+        }
+      }, {
+        '$match': {
+          ...studioQuery,
+          ...searchQuery
+        }
+      }
+      , {
+        $project: {
+          _id: 1,
+          bookings: '$queueData.slotBookingsData',
+          slotNo: 1,
+          studioNo: 1,
+          type: 1,
+          timingNo: 1,
+          user_doc: 1
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'bookings.userEmail',
+          foreignField: 'email',
+          as: 'user_doc',
+          pipeline: [{ "$project": { "name": 1, "lastname": 1, "email": 1, "role": 1 } }]
+        }
+      },
+      {
+        $unwind: {
+          path: '$user_doc'
+        }
+      },
+      {
+        $sort: sortQuery
+      },
+      {
+        $facet: {
+          results: [
+            {
+              $skip: skip
+            },
+            {
+              $limit: limit
+            }
+          ],
+          count: [
+            {
+              $group: {
+                _id: null,
+                count: {
+                  $sum: 1
+                }
+              }
+            }
+          ]
+        }
+      }
+    ])
+    res.status(200).json({ totalPages: Math.ceil(waitingBookings[0].count[0].count / limit), count: waitingBookings[0].results.length, bookings: waitingBookings[0].results })
   } catch (error) {
     res.status(500).json({ msg: error.message })
   }
@@ -773,7 +938,6 @@ router.post("/admin", async (req, res, next) => {
         }
       }, { new: true }
     );
-    const subject = `Studio Booking confirmed`
 
 
     const dynamicTemplateData = {
@@ -785,6 +949,11 @@ router.post("/admin", async (req, res, next) => {
       slotNo: Math.trunc(updatedSlot.slotNo / 10),
     }
     // await sendEmail(req, res, req.body.email, subject, bookingDoneTemplateId, dynamicTemplateData)
+    const user = await User.findOne({ email: req.body.email })
+    const refreshToken = user.refreshTokenGoogle
+
+    const description = `You have a booking at Studio Number ${Math.trunc(req.body.slotNo / 10)} on date: ${localDateStringToDDMMYYYY(req.body.slotBookingData.date)}, time: ${getTimingNoString(req.body.slotNo % 10)} for the program: ${req.body.slotBookingData.program}. Please report 10 minutes before the slot time`
+    await createEvent(refreshToken, req.body.slotBookingData.date, getStartTimeFromTimingNo(req.body.slotNo % 10), getEndTimeFromTimingNo(req.body.slotNo % 10), req.body.email, description, req.body.slotNo, Math.trunc(req.body.slotNo / 10), updatedSlot.type)
     await sendTemplatedEmailSES(req.body.email, 'studio-booking-confirmed-idol', dynamicTemplateData)
     res.status(200).json({ msg: `booking has been made in studio ${Math.trunc(req.body.slotNo / 10)} and slot ${req.body.slotNo % 10}`, studio: Math.trunc(req.body.slotNo / 10), slot: (req.body.slotNo % 10), type: updatedSlot.type })
   } catch (err) {
@@ -917,7 +1086,7 @@ router.post("/delete", async (req, res) => {
     //pushing deleted booking to deltedField
     const obj = slotData[0].slotBookingsData[0]._doc
     const dataToPush = { reasonForCancel: req.body.reasonForCancel, ...obj }
-    console.log(dataToPush)
+    // console.log(dataToPush)
     await Slot.findOneAndUpdate({
       studioNo: req.body.studioNo, timingNo: req.body.timingNo
     }, {
@@ -971,30 +1140,56 @@ router.post("/delete", async (req, res) => {
       )
       // console.log(data)
 
+      // const dynamicTemplateDataTwo = {
+      //   email: data._doc.userEmail,
+      //   type: getStudioTypeFromStudioNo(req.body.studioNo),
+      //   date: localDateStringToDDMMYYYY(req.body.date),
+      //   program: data._doc.program,
+      //   timing: getTimingNoString(req.body.timingNo),
+      //   slotNo: req.body.studioNo,
+      //   reasonForCancel: req.body?.reasonForCancel
+      // }
       const dynamicTemplateDataTwo = {
         email: data._doc.userEmail,
         type: getStudioTypeFromStudioNo(req.body.studioNo),
-        date: localDateStringToDDMMYYYY(req.body.date),
+        date: localDateStringToDDMMYYYY(data._doc.date),
         program: data._doc.program,
         timing: getTimingNoString(req.body.timingNo),
         slotNo: req.body.studioNo,
-        reasonForCancel: req.body?.reasonForCancel
+      }
+      let receiversOfEmail = [data._doc.userEmail]
+      if (data._doc?.recorder != '') {
+        receiversOfEmail.push(data._doc?.recorder)
+        const recorderFromDb = await User.findOne({email: data._doc.recorder})
+        const refreshTokenRecorderQueue = recorderFromDb.refreshTokenGoogle
+        const descriptionReciever = `You have a booking at Studio Number ${req.body.studioNo} on date: ${localDateStringToDDMMYYYY(data._doc.date)}, time: ${getTimingNoString(req.body.timingNo)} for the program: ${data._doc.program} and degree: ${data._doc.degree} from ${data._doc.userEmail}. Please report 10 minutes before the slot time`
+        await createEvent(refreshTokenRecorderQueue, req.body.date, getStartTimeFromTimingNo(req.body.timingNo), getEndTimeFromTimingNo(req.body.timingNo), data._doc.recorder, descriptionReciever, req.body.slotNo, req.body.studioNo, getStudioTypeFromStudioNo(req.body.studioNo))
       }
       // await sendEmail(req, res, data._doc.userEmail, 'Studio Booking Confirmed', bookingDoneTemplateId, dynamicTemplateDataTwo)
-      await sendTemplatedEmailSES(data._doc.userEmail, 'studio-booking-confirmed-idol', dynamicTemplateData)
+      await sendTemplatedEmailSES(receiversOfEmail, 'studio-booking-confirmed-idol', dynamicTemplateDataTwo)
       const userQueue = await User.findOne({ email: data._doc.userEmail })
       const refreshTokenUserQueue = userQueue.refreshTokenGoogle
       const descriptionTwo = `You have a booking at Studio Number ${req.body.studioNo} on date: ${localDateStringToDDMMYYYY(req.body.date)}, time: ${getTimingNoString(req.body.timingNo)} for the program: ${data._doc.program}. Please report 10 minutes before the slot time`
-      await createEvent(refreshTokenUserQueue, req.body.date, getStartTimeFromTimingNo(req.body.timingNo), getEndTimeFromTimingNo(req.body.timingNo), req, descriptionTwo, req.body.slotNo, req.body.studioNo, getStudioTypeFromStudioNo(req.body.studioNo))
+      await createEvent(refreshTokenUserQueue, req.body.date, getStartTimeFromTimingNo(req.body.timingNo), getEndTimeFromTimingNo(req.body.timingNo), data._doc.userEmail, descriptionTwo, req.body.slotNo, req.body.studioNo, getStudioTypeFromStudioNo(req.body.studioNo))
     }
 
     const refrestToken = await User.findOne({ email: slotData[0].slotBookingsData[0].userEmail }, { _id: 0, refreshTokenGoogle: 1 })
-    const eventId = await CalendarEvent.findOneAndDelete({ date: slotData[0].slotBookingsData[0].date, studioNo: req.body.studioNo, timingNo: req.body.timingNo })
+    const eventId = await CalendarEvent.findOneAndDelete({ date: slotData[0].slotBookingsData[0].date, studioNo: req.body.studioNo, timingNo: req.body.timingNo, userEmail: slotData[0].slotBookingsData[0].userEmail })
     // console.log(eventId)
     // console.log(slotDataqueue)
 
+    let receiversOfEmail = [slotData[0].slotBookingsData[0].userEmail]
+
     //deleting event of deleted booking
     await deleteEvent(refrestToken.refreshTokenGoogle, eventId.eventId)
+    //deleting event of recorder if recorder is there
+    if(slotData[0].slotBookingsData[0]?.recorder != ""){
+      receiversOfEmail.push(slotData[0].slotBookingsData[0]?.recorder)
+      const recorderFromDb = await User.findOne({email: slotData[0].slotBookingsData[0]?.recorder})
+      const refreshTokenRecorderQueue = recorderFromDb.refreshTokenGoogle
+      const eventIdRecorder = await CalendarEvent.findOneAndDelete({date: slotData[0].slotBookingsData[0]?.date, studioNo:req.body.studioNo, timingNo: req.body.timingNo, userEmail: slotData[0].slotBookingsData[0]?.recorder})
+      await deleteEvent(refreshTokenRecorderQueue,eventIdRecorder.eventId)
+    }
 
 
     const dynamicTemplateData = {
@@ -1007,7 +1202,7 @@ router.post("/delete", async (req, res) => {
     }
     //sending deleting mail
     // await sendEmail(req, res, slotData[0].slotBookingsData[0].userEmail, `Studio Booking Cancelled`, deleteDoneTemplateId, dynamicTemplateData)
-    await sendTemplatedEmailSES(slotData[0].slotBookingsData[0].userEmail, 'studio-booking-deleted-idol', dynamicTemplateData)
+    await sendTemplatedEmailSES(receiversOfEmail, 'studio-booking-deleted-idol', dynamicTemplateData)
     res.json({ msg: "done" })
   } catch (error) {
     console.log(error)
@@ -1120,8 +1315,8 @@ router.post("/find", async (req, res) => {
   if (email) {
     searchQuery = { 'slotBookingsData.userEmail': { $regex: email, $options: 'i' } }
   }
-  if(name){
-    searchQuery = {'slotBookingsData.userEmail': {$regex: name, $options: 'i'}}
+  if (name) {
+    searchQuery = { 'slotBookingsData.userEmail': { $regex: name, $options: 'i' } }
   }
 
 
@@ -1189,7 +1384,7 @@ router.post("/find", async (req, res) => {
         let rowItem = {
           s_no: counter,
           studioNo: item.studioNo,
-          slotNo: item.slotNo%10,
+          slotNo: item.slotNo % 10,
           timing: getTimingNoString(item?.timingNo),
           date: localDateStringToDDMMYYYY(item.slotBookingsData.date),
           program: item.slotBookingsData?.program,

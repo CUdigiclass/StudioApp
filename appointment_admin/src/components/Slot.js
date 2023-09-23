@@ -12,6 +12,7 @@ import { ACTION_TYPE, INITIAL_STATE_SLOT_REDUCER, bookingReducer } from '../redu
 import { AuthContext } from '../context/AuthContext'
 import { LoadingOutlined } from '@ant-design/icons'
 import { useEffect } from 'react'
+import {  getStartTimeFromTimingNoForDisabling } from '../utils/dateUtil'
 
 const OuterContainer = styled.div`
     display: flex;
@@ -96,7 +97,7 @@ const Input = styled.input`
 `
 const Slot = ({ setDatePickerOpen }) => {
     const [isModalOpen, setIsModalOpen] = useState(false)
-    const { activeId, dateString, unCheckSlotActive, dispatch, loading, bookedSlots, handleBulkOnActive, setBulkOn, bulkIdsActive } = useContext(SlotStatusContext)
+    const { activeId, dateString, unCheckSlotActive, dispatch, loading, bookedSlots, handleBulkOnActive, setBulkOn, bulkIdsActive, bulkOn } = useContext(SlotStatusContext)
     const [program, setProgram] = useState("")
     const [state, dispatchA] = useReducer(bookingReducer, INITIAL_STATE_SLOT_REDUCER)
     const { user } = useContext(AuthContext)
@@ -284,6 +285,31 @@ const Slot = ({ setDatePickerOpen }) => {
     useEffect(() => {
         getStudioStatus().then(studioStatus => setUnavailableStuios(studioStatus))
     }, [])
+    useEffect(()=>{
+        const elevenMinutes = 11 * 60 * 60  //10 minutes in ms which is buffer
+        let currDateTime = new Date().getTime() - elevenMinutes
+        if(bulkOn){
+           bulkIdsActive.map((bulkId)=>{
+                if(getStartTimeFromTimingNoForDisabling(bulkId%10, dateString)<currDateTime){
+                    setShowButton(false)
+                    console.log("disable full slot button")
+                }
+           })
+        }else if(bulkOn == false){
+           if (activeId != null &&  getStartTimeFromTimingNoForDisabling(activeId%10,dateString)<currDateTime){
+                 setShowButton(false)
+                 console.log("disable button")
+           }else if(activeId != null){
+            setShowButton(true)
+            console.log("dont disable")
+           }else{
+            setShowButton(true)
+           }
+        }else{
+            setShowButton(true)
+        }
+    }, [activeId, bulkOn])
+
     return (<OuterContainer>
         {contextHolder}
         <Container>
@@ -301,12 +327,13 @@ const Slot = ({ setDatePickerOpen }) => {
                 </Slots>
             </Spin>
         </Container>
-        {showButton && !fullSlot && <Button onClick={handleBook} disable={state.posting || loading}>Book Now</Button>}
-        {fullSlot && showButton && <Button onClick={handleBook} disable={state.posting || loading}>Book Full Slot</Button>}
+        {!(user?.role == "recorder" || user?.role == "manager" || user?.role == "pcs") && showButton && !fullSlot && <Button onClick={handleBook} disable={state.posting || loading}>Book Now</Button>}
+        {!(user?.role == "recorder" || user?.role == "manager" || user?.role == "pcs") &&  fullSlot && showButton && <Button onClick={handleBook} disable={state.posting || loading}>Book Full Slot</Button>}
+        {!(user?.role == "recorder" || user?.role == "manager" || user?.role == "pcs") && !showButton && <span className='text-danger p-2'>*Select future date or time slot to enable booking button*</span>}
         <Modal title={`You are booking slot ${activeId % 10} of studio ${Math.floor(activeId / 10)}`} open={isModalOpen} onOk={handleOk} onCancel={handleCancel} okButtonProps={{disabled: program === ""?true:false}}>
-            <Title>Enter the program</Title>
+            <Title>Enter the Reason</Title>
             <Form>
-                <Input placeholder="eg: MBA" onChange={(e) => setProgram(e.target.value)} />
+                <Input placeholder="eg: Higher Authority" onChange={(e) => setProgram(e.target.value)} />
             </Form>
         </Modal>
     </OuterContainer>

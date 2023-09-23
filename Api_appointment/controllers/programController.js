@@ -1,5 +1,5 @@
 const Program = require("../models/Program")
-
+const User = require("../models/User")
 // add single program
 const addProgram = async (req, res) => {
     try {
@@ -8,6 +8,35 @@ const addProgram = async (req, res) => {
         res.status(201).json({ msg: "program added successfully" })
     } catch (error) {
         res.status(500).json({ msg: error.message })
+    }
+}
+//add recorder to the program
+const addRecorderToProgram = async(req,res)=>{
+    try {
+        const recorders = await User.find({_id: {$in: req.body.recorderIds}}).select({name: 1, lastname: 1, username: 1, email: 1, img: 1,googleId: 1, refreshTokenGoogle: 1})
+        await Program.findOneAndUpdate({_id: req.body.programId}, {
+            $push: {
+                recorders: {$each: recorders}
+            }
+        })
+        
+        res.status(201).json({msg: "recorder added to the program"})
+    } catch (error) {
+        res.status(400).json(error.message)
+    }
+}
+
+//remove recorder from the program
+const removeRecorderFromProgram = async(req,res)=>{
+    try {
+        await Program.findOneAndUpdate({_id: req.params.programId}, {
+            $pull: {
+                recorders: {_id: req.params.recorderId}
+            }
+        })
+        res.status(200).json({msg: "recorder removed"})
+    } catch (error) {
+        res.status(400).json({msg: error.message})
     }
 }
 
@@ -72,5 +101,7 @@ const getPrograms = async (req, res) => {
 module.exports = {
     addProgram,
     getPrograms,
-    deleteProgram
+    deleteProgram,
+    addRecorderToProgram,
+    removeRecorderFromProgram
 }

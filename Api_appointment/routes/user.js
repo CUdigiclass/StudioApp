@@ -33,88 +33,88 @@ router.get("/find/:userId", async (req, res) => {
 router.get("/", async (req, res) => {
     try {
         //if there is query then sort in descending order of id
-        let users = User.find()
+        let users = User.find().sort({email: 1})
 
         //sort
-        let sortQuery = { role: 1 }
-        if (req.query.sort) {
-            switch (req.query.sort) {
-                case "firstName":
-                    if (req.query.order) {
-                        if (req.query.order == 'Asc') {
-                            sortQuery = { name: 1 }
-                        } else if (req.query.order == 'Desc') {
-                            sortQuery = { name: -1 }
-                        } else {
-                            sortQuery = { name: 1 }
-                        }
-                    } else {
-                        sortQuery = { name: 1 }
-                    }
-                    break;
-                case "lastName":
-                    if (req.query.order) {
-                        if (req.query.order == 'Asc') {
-                            sortQuery = { lastName: 1 }
-                        } else if (req.query.order == 'Desc') {
-                            sortQuery = { lastName: -1 }
-                        } else {
-                            sortQuery = { lastName: 1 }
-                        }
-                    } else {
-                        sortQuery = { lastName: 1 }
-                    }
-                    break;
-                case "email":
-                    if (req.query.order) {
-                        if (req.query.order == 'Asc') {
-                            sortQuery = { email: 1 }
-                        } else if (req.query.order == 'Desc') {
-                            sortQuery = { email: -1 }
-                        } else {
-                            sortQuery = { email: 1 }
-                        }
-                    } else {
-                        sortQuery = { email: 1 }
-                    }
-                    break;
-                case "role":
-                    if (req.query.order) {
-                        if (req.query.order == 'Asc') {
-                            sortQuery = { role: 1 }
-                        } else if (req.query.order == 'Desc') {
-                            sortQuery = { role: -1 }
-                        } else {
-                            sortQuery = { role: 1 }
-                        }
-                    } else {
-                        sortQuery = { role: 1 }
-                    }
-                    break;
-                case "status":
-                    if (req.query.order) {
-                        if (req.query.order == 'Asc') {
-                            sortQuery = { status: 1 }
-                        } else if (req.query.order == 'Desc') {
-                            sortQuery = { status: -1 }
-                        } else {
-                            sortQuery = { status: 1 }
-                        }
-                    } else {
-                        sortQuery = { status: 1 }
-                    }
-                    break;
-            }
-        }
-        users = users.sort(sortQuery)
+        // let sortQuery = { role: 1 }
+        // if (req.query.sort) {
+        //     switch (req.query.sort) {
+        //         case "firstName":
+        //             if (req.query.order) {
+        //                 if (req.query.order == 'Asc') {
+        //                     sortQuery = { name: 1 }
+        //                 } else if (req.query.order == 'Desc') {
+        //                     sortQuery = { name: -1 }
+        //                 } else {
+        //                     sortQuery = { name: 1 }
+        //                 }
+        //             } else {
+        //                 sortQuery = { name: 1 }
+        //             }
+        //             break;
+        //         case "lastName":
+        //             if (req.query.order) {
+        //                 if (req.query.order == 'Asc') {
+        //                     sortQuery = { lastName: 1 }
+        //                 } else if (req.query.order == 'Desc') {
+        //                     sortQuery = { lastName: -1 }
+        //                 } else {
+        //                     sortQuery = { lastName: 1 }
+        //                 }
+        //             } else {
+        //                 sortQuery = { lastName: 1 }
+        //             }
+        //             break;
+        //         case "email":
+        //             if (req.query.order) {
+        //                 if (req.query.order == 'Asc') {
+        //                     sortQuery = { email: 1 }
+        //                 } else if (req.query.order == 'Desc') {
+        //                     sortQuery = { email: -1 }
+        //                 } else {
+        //                     sortQuery = { email: 1 }
+        //                 }
+        //             } else {
+        //                 sortQuery = { email: 1 }
+        //             }
+        //             break;
+        //         case "role":
+        //             if (req.query.order) {
+        //                 if (req.query.order == 'Asc') {
+        //                     sortQuery = { role: 1 }
+        //                 } else if (req.query.order == 'Desc') {
+        //                     sortQuery = { role: -1 }
+        //                 } else {
+        //                     sortQuery = { role: 1 }
+        //                 }
+        //             } else {
+        //                 sortQuery = { role: 1 }
+        //             }
+        //             break;
+        //         case "status":
+        //             if (req.query.order) {
+        //                 if (req.query.order == 'Asc') {
+        //                     sortQuery = { status: 1 }
+        //                 } else if (req.query.order == 'Desc') {
+        //                     sortQuery = { status: -1 }
+        //                 } else {
+        //                     sortQuery = { status: 1 }
+        //                 }
+        //             } else {
+        //                 sortQuery = { status: 1 }
+        //             }
+        //             break;
+        //     }
+        // }
+        // users = users.sort(sortQuery)
 
         // pagination and limit
         const page = Number(req.query.page) || 1
         const limit = Number(req.query.limit) || 10  //by default 10 is the limit of objects to fetch
         const skip = (page - 1) * limit       // if limit is 10 and page is 2 then, skip will be 10, so it will show the objects after skipping 10 objects from the results
 
-        users.skip(skip).limit(limit)
-        const finalUsers = await users
+        
+        const finalUsers = await users.skip(skip).limit(limit)
 
         const totalDocuments = await User.countDocuments()
         const totalPages = Math.ceil(totalDocuments / limit)
@@ -140,7 +140,7 @@ router.post("/:userId", async (req, res) => {
 router.post("/role/:userId", async(req,res)=>{
     try {
         let additionalQuery = {}
-        if(req.body.role === 'admin' || req.body.role === 'manager' || req.body.role === 'provc'){
+        if(req.body.role === 'admin' || req.body.role === 'manager' || req.body.role === 'provc' || req.body.role == "recorder"){
             additionalQuery.isAdmin = true
         }
         await User.findOneAndUpdate({_id: req.params.userId},{
@@ -151,6 +151,15 @@ router.post("/role/:userId", async(req,res)=>{
     } catch (error) {
         res.status(400).json({msg: error.message})
     }   
+})
+
+router.post("/role/list/:userType", async(req,res)=>{
+    try {
+        const usersOfParticularType = await User.find({role: req.params.userType, status: "approved", _id: {$nin: req.body.recordersIDs}}).select({name: 1, lastname: 1, username: 1, email: 1, img: 1,googleId: 1, refreshTokenGoogle: 1})
+        res.status(200).json({users: usersOfParticularType})
+    } catch (error) {
+        res.status(400).json(error.message)
+    }
 })
 
 module.exports = router

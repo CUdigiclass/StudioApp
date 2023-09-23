@@ -18,7 +18,8 @@ const SlotSchema = mongoose.Schema({
         defaulted: {type: Boolean, default: false},
         reasonForDefault: {type: String},
         reasonForCompleted: {type: String},
-        reasonForCancel: {type: String}
+        reasonForCancel: {type: String},
+        recorder: {type: String}
     }],
     queueData:{
         slotBookingsData: [
@@ -36,7 +37,8 @@ const SlotSchema = mongoose.Schema({
                 waitingNo: {type: Number},
                 reasonForDefault: {type:String},
                 reasonForCompleted: {type: String},
-                reasonForCancel: {type: String}
+                reasonForCancel: {type: String},
+                recorder: {type: String}
             }
         ],
     },
@@ -55,7 +57,8 @@ const SlotSchema = mongoose.Schema({
             deletedAt: {type: Date, default: Date.now},
             reasonForDefault: {type: String},
             reasonForCompleted: {type: String},
-            reasonForCancel: {type: String}
+            reasonForCancel: {type: String},
+            recorder: {type: String}
         }]
     },
     active: {type: Boolean, default: true},
