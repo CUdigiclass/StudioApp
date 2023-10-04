@@ -29,3 +29,46 @@ export function getTimingStringFromTimingNoOfSlot(timingNo){
         const stringDate = yourDate.toISOString().split('T')[0]
         return stringDate
   }
+  const getStartTimeFromTimingNo = (timingNo) => {
+    let startTime = ''
+    switch (timingNo) {
+      case 1:
+        startTime = '10:00:00'
+        break;
+      case 2:
+        startTime = "11:00:00"
+        break;
+      case 3:
+        startTime = "12:00:00"
+        break;
+      case 4:
+        startTime = "14:00:00"
+        break;
+      case 5:
+        startTime = "15:00:00"
+        break;
+      default:
+        break;
+    }
+    return startTime
+  }
+
+  export function getStartTimeFromTimingNoForDisabling(timingNo,dateString) {
+    // Get the current date
+    const currentDate = new Date(dateString);
+  
+    // Parse the start time for the slots (assuming the format "HH:mm:ss")
+    const startTime = getStartTimeFromTimingNo(timingNo); // Replace with your desired start time
+    const [hours, minutes, seconds] = startTime.split(":").map(Number);
+  
+    // Set the time for the current date based on the slot number
+    currentDate.setHours(hours); 
+    // Set minutes and seconds to 0 (optional)
+    currentDate.setMinutes(0);
+    currentDate.setSeconds(0);
+  
+    // Get the datetime in milliseconds
+    const datetimeInMilliseconds = currentDate.getTime();
+  
+    return datetimeInMilliseconds;
+  }

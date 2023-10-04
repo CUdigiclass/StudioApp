@@ -23,9 +23,13 @@ const DatesPicker = ({ datePickerOpen }) => {
   };
   const disabledDate = (current) => {
     // Check if the date is after tomorrow and before 90 days from now.
-    if (current < dayjs().add(1, 'day') || current > dayjs().add(90, 'day')) {
+    // if (current < dayjs().add(1, 'day') || current > dayjs().add(90, 'day')) {
+    //   return true;
+    // }
+    if (current > dayjs().add(90, 'day')) {
       return true;
     }
+
 
     // Check if the date is a Sunday.
     const day = current.weekday();

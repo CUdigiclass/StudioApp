@@ -16,6 +16,7 @@ import axios from 'axios'
 import Sucess from '../utils/Sucess'
 import ErrorMessage from '../utils/ErrorMessage'
 import TakeAction from '../utils/TakeAction'
+import { getStartTimeFromTimingNoForDisabling } from '../utils/dateUtils'
 const SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8]
 const PROGRAMNAMES = ["BAJMC", "BBA", "BCA", "M.Com", "MAJMC", "MBA", "MCA"]
 const OuterContainer = styled.div`
@@ -111,6 +112,7 @@ const Slot = ({ setDatePickerOpen, slotType }) => {
     const { user } = useContext(AuthContext)
     const [messageApi, contextHolder] = message.useMessage();
     const [showSlots, setShowSlots] = useState(false)
+    const [showButton, setShowButton] = useState(false)
     const header = {
         'Content-Type': 'application/json',
         'token': `Bearer ${user?.accestoken}`
@@ -210,6 +212,16 @@ const Slot = ({ setDatePickerOpen, slotType }) => {
         }
     }, [slotType, dateString])
 
+    useEffect(()=>{
+        const elevenMinutes = 11 * 60 * 60  //10 minutes in ms which is buffer
+        let currDateTime = new Date().getTime() - elevenMinutes
+        if (getStartTimeFromTimingNoForDisabling(timingNo, dateString)<currDateTime){
+            setShowButton(false)
+        }else{
+            setShowButton(true)
+        }
+    },[slotType, dateString, timingNo])
+
     const getProgramList = async () => {
         try {
             const res = await publicRequest.get(`/program?semester=${semester}&programName=${programName}&fetchType=teacher`)
@@ -246,7 +258,7 @@ const Slot = ({ setDatePickerOpen, slotType }) => {
                     </Slots>
                 </Spin>
             </Container>
-            <Button onClick={handleBook} disableJi={state.posting || loading || (activeIds.length == 0)}>Book Now</Button>
+            {showButton == true?<Button onClick={handleBook} disableJi={state.posting || loading || (activeIds.length == 0)}>Book Now</Button>:<span className='text-danger p-2'>*Invalid time*</span>}
             <Modal title={`You are booking ${slotType} slot`} open={isModalOpen} onOk={handleOk} onCancel={handleCancel} okButtonProps={{ disabled: program === '' ? true : false }}>
                 <Title>Select the program</Title>
                 <Form>
