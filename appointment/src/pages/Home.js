@@ -11,6 +11,7 @@ import TypeWriter from 'typewriter-effect'
 import CuBackgroud from '../assets/cubackground.jpg'
 import { getCountCancelled, getCountPast, getCountToday, getCountUpcoming, getCountWaiting } from '../utils/statsUtils';
 import { AuthContext } from '../context/AuthContext';
+import { publicRequest } from '../requestMethods';
 
 const OuterContainer = styled.div`
     height: 110vh;
@@ -94,6 +95,12 @@ const Home = () => {
     const [upcomingCount,setUpcomingCount]=useState(0)
     const [todayCount,setTodayCount] = useState(0)
     const [isModalOpen, setIsModalOpen] = useState(true);
+    const [holidays,setHolidays] = useState([])
+
+    const getHolidays = async()=>{
+        const res = await publicRequest.get("/holidays")
+        setHolidays(res.data.dateArray)
+    }
     
     const handleCancelModal = () => {
         setDatePickerOpen(true)
@@ -112,6 +119,7 @@ const Home = () => {
          setLoadingStats(false)
         }
          getDifferenData()
+         getHolidays()
     },[])
 
     const onChange = (e) => {
@@ -139,7 +147,7 @@ const Home = () => {
                 />
             </SmallContainer>
             <Container>
-                <DatesPicker datePickerOpen={datePickerOpen} />
+                <DatesPicker datePickerOpen={datePickerOpen} holidays={holidays} />
                 <RadioContainer>
                     <Radio.Group onChange={onChange} value={slotType} size='large' style={{ backgroundColor: "#f1f1f1", padding: '10px', borderRadius: '10px', boxShadow: '0px 1px 9px -1px rgba(179,173,179,1)' }}>
                         <Space direction='vertical' style={{ margin: '8px', padding: '8px' }}>

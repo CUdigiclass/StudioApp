@@ -18,7 +18,7 @@ import ErrorMessage from '../utils/ErrorMessage'
 import TakeAction from '../utils/TakeAction'
 import { getStartTimeFromTimingNoForDisabling } from '../utils/dateUtils'
 const SEMESTERS = [1, 2, 3, 4, 5, 6, 7, 8]
-const PROGRAMNAMES = ["BAJMC", "BBA", "BCA", "M.Com", "MAJMC", "MBA", "MCA"]
+const PROGRAMNAMES = ["BAJMC", "BBA", "BCA", "M.Com", "MAJMC", "MBA", "MCA", "MA Economics", "MA English", "MSC Mathematics"]
 const OuterContainer = styled.div`
     display: flex;
     flex-direction: column;
